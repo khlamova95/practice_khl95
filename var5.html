@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <style>
+        canvas{
+            border: 2px solid black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id = 'canvas' width="800" height="600"></canvas>
+    <script>
+        var canvas = document.getElementById('canvas');
+        var ctx = canvas.getContext('2d');
+        var width = 200;  //Ширина блоков по умолчанию
+        var space = 20; //Расстояние между блоками по умолчанию
+
+        var input = {"left":[{"id": 1, "name": "3+3", relations: []},{"id": 2, "name": "3*4", relations: []},{"id": 3, "name": "2*0", relations: []}],
+            'right': [{"id": 1, "name": "6", relations: []},{"id": 2, "name": "12", relations: []},{"id": 3, "name": "0", relations: []}]}; //Пример JSON, который на входе
+        /*var testArray = input;
+        alert(JSON.stringify(testArray));*/
+
+        function heightFinding(text){ //Функция для расчета высоты блока на основе количества текста
+            var size = ctx.measureText(text).width;
+            var t = Math.ceil(size / width);
+            return t * 30; //Рассчитывая, что шрифт 30 Times New Roman
+        }
+        function Rectangle(id,name,x,y){
+            this.id = id;
+            this.name = name;
+            this.color = "black";
+            this.x = x;
+            this.y = y;
+            this.height = heightFinding(this.name);
+            this.draw = function(){
+                ctx.beginPath();
+                ctx.strokeStyle = this.color;
+                ctx.strokeRect(this.x, this.y, width,this.height);
+                ctx.fillStyle = this.color;
+                ctx.font = "30px Times New Roman";
+                ctx.fillText(this.name,this.x + 5,this.y + 25);
+                ctx.closePath();
+            }
+        }
+
+        var left = new Array();
+        var t = 0;
+        for(var i = 0; i < input.left.length; i++){ //Создаем объекты блоков слева и запихиваем ссылки в массив
+            var tempId = input.left[i].id;
+            var tempName = input.left[i].name;
+            var tempRec = new Rectangle(tempId,tempName,0,t);
+            tempRec.draw();
+            t += tempRec.height + space;
+            left.push(tempRec);
+        }
+
+        var right = new Array();
+        var y = 0;
+        for(var i = 0; i < input.right.length; i++){//Создаем объекты блоков справа и запихиваем ссылки в массив
+            var tempId = input.right[i].id;
+            var tempName = input.right[i].name;
+            var tempRec = new Rectangle(tempId,tempName,600,y);
+            tempRec.draw();
+            y += tempRec.height + space;
+            right.push(tempRec);
+        }
+
+        function ResultArrow(startObject, endObject){
+            this.startObject = startObject; //Объект откуда стрелка начнет свое движение
+            this.endObject = endObject; //Объект где стрелка закончит движение
+            this.startX = this.startObject.x + width;
+            this.startY = this.startObject.y + (this.startObject.height/2);
+            this.endX = this.endObject.x;
+            this.endY = this.endObject.y + (this.endObject.height/2);
+            this.draw = function(){
+                ctx.beginPath();
+                ctx.strokeStyle = 'black';
+                ctx.moveTo(this.startX,this.startY);
+                ctx.lineTo(this.endX,this.endY);
+                ctx.stroke();
+                ctx.closePath();
+            }
+        }
+        function MoveArrow(startObject,endX,endY){
+            this.startObject = startObject;
+            this.startX = this.startObject.x + width;
+            this.startY = this.startObject.y + (this.startObject.height/2);
+            this.endX = endX;
+            this.endY = endY;
+            this.draw = function(){
+                ctx.beginPath();
+                ctx.strokeStyle = 'black';
+                ctx.moveTo(this.startX,this.startY);
+                ctx.lineTo(this.endX,this.endY);
+                ctx.stroke();
+                ctx.closePath();
+            }
+        }
+
+        function clear(){
+            ctx.clearRect(0,0,800,600);
+        }
+        function drawObject(array){
+            for(var i = 0; i < array.length; i++){
+                array[i].draw();
+            }
+        }
+
+        var arrows = new Array();
+        var indexObject = -1; // Индекс объекта на который была нажата кнопочка
+        canvas.onmousedown = function(e){
+            var downX = e.pageX;
+            var downY = e.pageY;
+            for(var i = 0; i < left.length; i++){
+                if((downX >= left[i].x && downX <= left[i].x + width ) && (downY >= left[i].y && downY <= left[i].y + left[i].height)){
+                    indexObject = i;
+
+                    for(var j = 0; j < arrows.length; j++){
+                        var o = arrows[j];
+                        if(left[indexObject] == o.startObject){
+                            arrows.splice(j,j+1);
+                        }
+
+                        for(var z = 0; z < left.length; z++){
+                            if(o.startObject == left[z]){
+                                input.left[z].relations = [];
+                            }
+                        }
+
+                        for(var x = 0; x < right.length; x++){
+                            if(o.endObject == right[x]){
+                                input.right[x].relations = [];
+                            }
+                        }
+                    }
+
+                }
+            }
+
+            if(indexObject > -1){
+                left[indexObject].color = 'red';
+                left[indexObject].draw();
+
+                this.onmousemove = function(e){
+                    var indexMoveObject = -1; //Индекс объекта над которым остановилась мышка
+                    var moveX = e.pageX;
+                    var moveY = e.pageY;
+
+                    clear();
+                    drawObject(left);
+                    drawObject(right);
+                    drawObject(arrows);
+
+
+                    if(moveX >= 200) {
+                        for(var i = 0; i < right.length; i++) {
+                            if ((moveX >= right[i].x && moveX <= right[i].x + width ) && (moveY >= right[i].y && moveY <= right[i].y + right[i].height)) {
+                                indexMoveObject = i;
+                            }
+                        }
+
+                        if(indexMoveObject > -1){
+                            right[indexMoveObject].color = 'red';
+                            right[indexMoveObject].draw();
+                        }else{
+                           for(var i = 0; i < right.length; i++){
+                               right[i].color = "black";
+                               right[i].draw();
+                           }
+                        }
+                        var ar = new MoveArrow(left[indexObject],moveX,moveY);
+                        ar.draw();
+                    }
+
+                }
+            }
+
+            this.onmouseup = function(e){
+                var indexEndObject = -1; //Индекс объекта, на котором пользователь отпустил кнопку мышки
+                var upX = e.pageX;
+                var upY = e.pageY;
+
+                clear();
+                drawObject(left);
+                drawObject(right);
+                drawObject(arrows);
+
+                for(var i = 0; i < right.length; i++){
+                    if ((upX >= right[i].x && upX <= right[i].x + width ) && (upY >= right[i].y && upY <= right[i].y + right[i].height)) {
+                       indexEndObject = i;
+
+                        for(var j = 0; j < arrows.length; j++){
+                            var o = arrows[j];
+                            if(right[indexEndObject] == o.endObject){
+                                arrows.splice(j,j+1);
+                            }
+
+                        }
+                    }
+                }
+
+                if(indexEndObject > -1){
+                    clear();
+                    drawObject(left);
+                    drawObject(right);
+                    drawObject(arrows);
+                    var ar = new ResultArrow(left[indexObject],right[indexEndObject]);
+                    ar.draw();
+                    arrows.push(ar);
+                    input.left[indexObject].relations.push(ar);
+                    input.right[indexEndObject].relations.push(ar);
+                }
+
+                if(indexObject > -1){
+                    left[indexObject].color = 'black';
+                    left[indexObject].draw();
+                }
+                for(var i = 0; i < right.length; i++){
+                    right[i].color = "black";
+                    right[i].draw();
+                }
+
+                var end = input;
+                alert(JSON.stringify(end));
+
+
+                this.onmousemove = null;
+                this.onmouseup = null;
+            }
+        }
+    </script>
+</body>
+</html>
